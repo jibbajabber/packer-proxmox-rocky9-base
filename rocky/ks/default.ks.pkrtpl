@@ -1,0 +1,106 @@
+url --url=https://download.rockylinux.org/pub/rocky/9/BaseOS/x86_64/os/
+repo --name="AppStream" --baseurl=https://download.rockylinux.org/pub/rocky/9/AppStream/x86_64/os/
+lang en_GB.UTF-8
+selinux --disabled
+firewall --disabled
+keyboard gb
+skipx
+text
+network --bootproto static --ip=${ip_address} --netmask=${netmask} --gateway=${gateway} --nameserver=${dns_server} --mtu=1500 --hostname ${template_name} --noipv6
+rootpw --iscrypted ${root_pass_crypted}
+user --name=${automation_user} --uid=990 --gid=990 --iscrypted --password=${automation_crypted_pass}
+authconfig --useshadow --passalgo=sha512 --kickstart
+timezone --utc UTC
+services --disabled gpm,sendmail,cups,pcmcia,isdn,rawdevices,hpoj,bluetooth,openibd,avahi-daemon,avahi-dnsconfd,hidd,hplip,pcscd
+bootloader --location=mbr --append="nofb quiet splash=quiet"
+
+clearpart --all --drives=sda
+ignoredisk --only-use=sda
+part /boot --fstype=xfs --size=1024 --asprimary
+${swap_config}
+part /boot/efi --fstype=efi --size 512
+part pv.01 --size=1 --grow
+volgroup vg_system pv.01
+logvol /     --vgname=vg_system --name=lv_root --size=10240 --fstype=xfs
+logvol /home --vgname=vg_system --name=lv_home --size=15360 --fstype=xfs
+logvol /tmp  --vgname=vg_system --name=lv_tmp  --size=10240 --fstype=xfs
+logvol /usr  --vgname=vg_system --name=lv_usr  --size=10240 --fstype=xfs
+logvol /var  --vgname=vg_system --name=lv_var  --size=15360 --fstype=xfs
+logvol /opt  --vgname=vg_system --name=lv_opt  --size=10240 --fstype=xfs
+
+%packages
+yum
+dhclient
+wget
+dmidecode
+kbd
+openssh-server
+openssh-clients
+perl
+bind-utils
+
+-chrony
+-biosdevname
+%end
+
+
+%post
+
+echo "Update sudoers"
+sed -i "s/^.*requiretty/#Defaults requiretty/" /etc/sudoers
+
+echo "Allow temporary root login"
+echo "PermitRootLogin yes" > /etc/ssh/sshd_config.d/allow-root-ssh.conf
+
+echo "Seting static network config"
+cat << EOF > /etc/sysconfig/network-scripts/ifcfg-eth0
+BOOTPROTO="none"
+IPADDR="${ip_address}"
+NETMASK="${netmask}"
+GATEWAY="${gateway}"
+DOMAIN="${domain}"
+DNS1="${dns_server}"
+DEVICE=eth0
+ONBOOT=yes
+PEERDNS=no
+PEERROUTES=no
+DEFROUTE=yes
+MTU=1500
+EOF
+
+echo "Create default route"
+cat << EOF > /etc/sysconfig/network
+GATEWAY=${gateway}
+EOF
+
+echo "Create ${automation_user} sudoers config"
+cat << EOF > /etc/sudoers.d/${automation_user}
+${automation_user} ALL=(root) NOPASSWD: ALL
+EOF
+
+echo "Create ${automation_user} SSH path"
+mkdir /home/${automation_user}/.ssh
+echo "Create ${automation_user} SSH RC: $?"
+
+echo "Create ${automation_user} SSH key access"
+cat << EOF > /home/${automation_user}/.ssh/authorized_keys
+${automation_ssh_public_key}
+EOF
+
+
+echo "Set ${automation_user} SSH permissions"
+chown -R 990:990 /home/${automation_user}
+chmod 700 /home/${automation_user}/.ssh
+chmod 600 /home/${automation_user}/.ssh/authorized_keys
+echo "Set ${automation_user} SSH permissions RC: $?"
+
+
+echo "Update all packages"
+yum -t -y install epel-release
+yum -t -y update
+
+
+echo "Build Finished. Sleep for 10s before reboot"
+/bin/sleep 10
+%end
+reboot --eject
