@@ -1,0 +1,18 @@
+proxmox_host              = "<IP or hostname>"
+proxmox_node_name         = "<proxmox node to deploy to>"
+proxmox_user              = "<proxmox user e.g root@pam>"
+proxmox_pass              = "<proxmox pass>"
+
+ip_address                = "<base template ip address>"
+gateway                   = "<base template gateway address>"
+netmask                   = "<base template netmask>"
+dns_server                = "<base template dns server>"
+domain                    = "<base template domain>"
+
+http_server_ip            = "<IP of the host this will run from>"
+
+root_clear_pass           = "<base template root password>"
+root_crypted_pass         = "<base template crypted root password>"
+automation_user           = "<base template automation user>"
+automation_crypted_pass   = "<base template automation crypted password>"
+automation_ssh_public_key = "<base template automation ssh public key>"
